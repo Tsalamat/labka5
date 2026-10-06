@@ -1,0 +1,61 @@
+{
+  "created_at_utc": "2026-10-06T11:17:42.118790+00:00",
+  "dataset_url": "https://github.com/clairett/pytorch-sentiment-classification/raw/master/data/SST2/train.tsv",
+  "n_samples": 2000,
+  "train_size": 1500,
+  "test_size": 500,
+  "random_state": 42,
+  "stratify": null,
+  "package_versions": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "torch": "2.14.1+cpu",
+    "transformers": "5.18.0",
+    "scikit-learn": "1.9.1",
+    "gensim": "4.4.0",
+    "scipy": "1.18.1"
+  },
+  "class_counts": {
+    "0": 959,
+    "1": 1041
+  },
+  "majority_baseline": {
+    "class_chosen_from_train": 1,
+    "train_accuracy": 0.5246666666666666,
+    "test_accuracy": 0.508
+  },
+  "models": [
+    {
+      "method": "TF-IDF (Unigrams)",
+      "train_accuracy": 0.8326666666666667,
+      "test_accuracy": 0.674,
+      "gap": 0.15866666666666662,
+      "n_features": 709,
+      "classifier_seconds": 0.004509604001214029
+    },
+    {
+      "method": "TF-IDF (N-Grams)",
+      "train_accuracy": 0.85,
+      "test_accuracy": 0.666,
+      "gap": 0.18399999999999994,
+      "n_features": 1002,
+      "classifier_seconds": 0.004186628000752535
+    },
+    {
+      "method": "GloVe (Averaged)",
+      "train_accuracy": 0.7073333333333334,
+      "test_accuracy": 0.714,
+      "gap": -0.006666666666666599,
+      "n_features": 25,
+      "classifier_seconds": 0.004789827002241509
+    },
+    {
+      "method": "DistilBERT (Embeddings + LR)",
+      "train_accuracy": 0.9086666666666666,
+      "test_accuracy": 0.834,
+      "gap": 0.07466666666666666,
+      "n_features": 768,
+      "classifier_seconds": 0.054394541002693586
+    }
+  ]
+}
