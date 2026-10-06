@@ -1,17 +1,8 @@
-#!/usr/bin/env python3
-"""Все пять частей лабораторной: SST-2, TF-IDF, GloVe и DistilBERT.
-
-Запуск: ``venv/bin/python lab.py``. При первом запуске нужны интернет и место
-для исходных данных, GloVe и DistilBERT. Повторные запуски используют кэш.
-Функции этого файла также используются в учебном Jupyter Notebook.
-"""
-
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-# Задаём доступные для записи каталоги ДО импортов gensim/transformers.
 PROJECT_DIR = Path(__file__).resolve().parent
 CACHE_DIR = PROJECT_DIR / "cache"
 DATA_DIR = PROJECT_DIR / "data"
@@ -57,17 +48,13 @@ MAX_LENGTH = 512
 TOKEN_PATTERN = re.compile(r"\b\w+(?:'\w+)?\b|[^\w\s]", flags=re.UNICODE)
 
 
+# Задания 1–5: вывод хода выполнения.
 def progress(message: str) -> None:
-    """Печать прогресса без буферизации, в том числе при запуске из терминала."""
     print(message, flush=True)
 
 
+# Задание 1: загрузка и проверка данных SST-2.
 def load_data(path: str | Path = DATA_PATH) -> pd.DataFrame:
-    """Загрузить весь TSV SST-2; 2000 первых строк выбираются вызывающим кодом.
-
-    Файл не имеет заголовка: колонка 0 — предложение, колонка 1 — метка 0/1.
-    Уже сохранённый файл повторно не скачивается.
-    """
     path = Path(path)
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -97,16 +84,14 @@ def load_data(path: str | Path = DATA_PATH) -> pd.DataFrame:
     return df
 
 
+# Задания 2–4: общее разбиение данных на обучение и тест.
 def split_indices(batch_1: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    """Одно разбиение 75/25 для ВСЕХ подходов, как в условии (без stratify).
-
-    Возвращает позиционные индексы для ``batch_1.iloc[indices]``.
-    """
     return train_test_split(
         np.arange(len(batch_1)), test_size=0.25, random_state=RANDOM_STATE
     )
 
 
+# Задания 2, 3 и 4.4: обучение логистической регрессии и оценка точности.
 def evaluate_features(
     name: str,
     train_features,
@@ -114,7 +99,6 @@ def evaluate_features(
     y_train,
     y_test,
 ) -> tuple[LogisticRegression, dict]:
-    """Обучить одинаковую LR и вернуть классификатор и реальные метрики."""
     started = time.perf_counter()
     classifier = LogisticRegression(max_iter=2000, random_state=RANDOM_STATE)
     classifier.fit(train_features, y_train)
@@ -135,8 +119,8 @@ def evaluate_features(
     return classifier, record
 
 
+# Задание 3: загрузка предобученных векторов GloVe.
 def load_glove():
-    """Загрузить настоящие предобученные векторы GloVe (25 измерений)."""
     import gensim.downloader
 
     Path(os.environ["GENSIM_DATA_DIR"]).mkdir(parents=True, exist_ok=True)
@@ -144,12 +128,8 @@ def load_glove():
     return gensim.downloader.load("glove-twitter-25")
 
 
+# Задание 3: получение вектора предложения усреднением GloVe.
 def get_sentence_embedding(sentence: str, glove_vectors) -> np.ndarray:
-    """Усреднить векторы известных токенов; если все OOV — вернуть нули.
-
-    Регистр приводится к нижнему. Слова, числа и пунктуация выделяются регулярным
-    выражением. Неизвестные токены не входят в знаменатель среднего.
-    """
     tokens = TOKEN_PATTERN.findall(str(sentence).lower())
     vectors = [glove_vectors[token] for token in tokens if token in glove_vectors]
     if not vectors:
@@ -157,13 +137,11 @@ def get_sentence_embedding(sentence: str, glove_vectors) -> np.ndarray:
     return np.mean(vectors, axis=0, dtype=np.float32)
 
 
+# Задание 4.1: загрузка модели и токенизатора DistilBERT.
 def load_distilbert(device: str = "cpu"):
-    """Вернуть (DistilBertTokenizer, DistilBertModel) в режиме eval()."""
     from transformers import DistilBertModel, DistilBertTokenizer
 
     progress(f"Загрузка {MODEL_NAME} на {device}…")
-    # Сначала проверяем локальный кэш, чтобы повторный запуск работал без сети
-    # и не ожидал HTTP HEAD к Hugging Face.
     try:
         tokenizer = DistilBertTokenizer.from_pretrained(MODEL_NAME, local_files_only=True)
     except OSError:
@@ -177,12 +155,8 @@ def load_distilbert(device: str = "cpu"):
     return tokenizer, model
 
 
+# Задание 4.2: токенизация, паддинг и маска внимания.
 def prepare_bert_inputs(texts, tokenizer) -> tuple[list[list[int]], np.ndarray, np.ndarray]:
-    """Ручные encode → padding нулями → attention_mask из задания.
-
-    Последовательности длиннее 512 токенов усекаются с сохранением специальных
-    токенов. Максимальная длина определяется по всем переданным предложениям.
-    """
     texts = list(texts)
     if not texts:
         raise ValueError("Нельзя токенизировать пустой список текстов.")
@@ -202,11 +176,13 @@ def prepare_bert_inputs(texts, tokenizer) -> tuple[list[list[int]], np.ndarray, 
     return tokenized, padded, attention_mask
 
 
+# Задание 4.3: служебная проверка соответствия кэша исходным текстам.
 def _texts_fingerprint(texts: list[str]) -> str:
     payload = json.dumps(texts, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+# Задание 4.3: извлечение и кэширование векторов [CLS].
 def extract_bert_features(
     texts,
     tokenizer=None,
@@ -218,13 +194,6 @@ def extract_bert_features(
     threads: int = 2,
     cache_path: str | Path = FEATURES_PATH,
 ) -> np.ndarray:
-    """Извлечь CLS (n, 768) небольшими батчами и сохранить проверяемый кэш.
-
-    При совпадении текстов, их порядка и имени модели возвращается кэш. Если
-    tokenizer/model не переданы, они загружаются только при отсутствии кэша.
-    Переданные объекты должны быть исходными distilbert-base-uncased: кэш не
-    предназначен для пользовательских дообученных весов.
-    """
     if batch_size < 1 or threads < 1:
         raise ValueError("batch_size и threads должны быть положительными.")
     if (tokenizer is None) != (model is None):
@@ -286,8 +255,6 @@ def extract_bert_features(
     with torch.no_grad():
         for start in range(0, len(texts), batch_size):
             stop = min(start + batch_size, len(texts))
-            # Убираем только правый padding, общий для всего мини-батча.
-            # Значимые токены и маски остаются теми же, вычислений требуется меньше.
             batch_max_len = int(attention_mask[start:stop].sum(axis=1).max())
             input_ids = torch.tensor(
                 padded[start:stop, :batch_max_len], dtype=torch.long, device=device
@@ -314,6 +281,7 @@ def extract_bert_features(
     return features
 
 
+# Задание 5: сводная таблица, анализ результатов и ответы на вопросы.
 def save_results(
     records: list[dict],
     batch_1: pd.DataFrame,
@@ -321,7 +289,6 @@ def save_results(
     test_idx: np.ndarray,
     output_dir: str | Path = RESULTS_DIR,
 ) -> pd.DataFrame:
-    """Сохранить метрики CSV/JSON и русский отчёт с ответами на все вопросы."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     results = pd.DataFrame(records)
@@ -431,7 +398,6 @@ def save_results(
 
 {' '.join(comparison)}
 
-## Ответы на контрольные вопросы
 
 **1. Какой метод показал наибольшую точность и почему?**
 
@@ -485,8 +451,9 @@ def save_results(
     return results
 
 
+# Задания 1–5: последовательный запуск всех этапов лабораторной.
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Сравнение TF-IDF, GloVe и DistilBERT на SST-2.")
     parser.add_argument("--batch-size", type=int, default=16, help="Батч DistilBERT (по умолчанию 16)")
     parser.add_argument("--threads", type=int, default=2, help="Число CPU-потоков PyTorch (по умолчанию 2)")
     parser.add_argument("--device", default="cpu", help="Устройство PyTorch (по умолчанию cpu)")
